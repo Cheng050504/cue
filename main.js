@@ -8,6 +8,7 @@ const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { UtteranceBatcher, DEFAULT_MIN_GAP_MS } = require('./src/publik-stt-batcher');
 const { parseDocumentFile } = require('./src/resume');
+const { clampWindowPosition } = require('./src/window-bounds');
 const { pickOwnProvider } = require('./src/own-provider');
 const { applyCaptureVisibility } = require('./src/capture-visibility');
 const { makeReference, summarizeReferences } = require('./src/references');
@@ -291,21 +292,20 @@ function saveWindowPosition() {
 }
 
 function createWindow() {
-  const { workArea } = screen.getPrimaryDisplay();
   const W = SIDE_W + MAIN_W + SIDE_W, H = 600;
-
   const savedSettings = store.getSettings();
+  const hasSaved = savedSettings.windowX !== null && savedSettings.windowY !== null;
+  // Use the display the window was saved on (it may be an external monitor),
+  // and keep the whole main column on it so the drag handle is reachable.
+  const { workArea } = hasSaved
+    ? screen.getDisplayNearestPoint({ x: Math.round(savedSettings.windowX), y: Math.round(savedSettings.windowY) })
+    : screen.getPrimaryDisplay();
   let startX = Math.round(workArea.x + (workArea.width - MAIN_W) / 2);
   let startY = workArea.y + 6;
-
-  if (savedSettings.windowX !== null && savedSettings.windowY !== null) {
-    const clampedX = Math.max(workArea.x - MAIN_W + 100, Math.min(savedSettings.windowX, workArea.x + workArea.width - 100));
-    // Keep the whole window on screen, not just a 40px sliver of it. The old
-    // `- 40` let a 600px-tall window sit at y=607 on a 960px display, pushing
-    // the composer and action row off the bottom edge with no way to reach them.
-    const clampedY = Math.max(workArea.y, Math.min(savedSettings.windowY, workArea.y + workArea.height - H));
-    startX = clampedX;
-    startY = clampedY;
+  if (hasSaved) {
+    const p = clampWindowPosition({ x: savedSettings.windowX - SIDE_W, y: savedSettings.windowY }, workArea, { sideW: SIDE_W, mainW: MAIN_W, height: H });
+    startX = p.x + SIDE_W;
+    startY = p.y;
   }
 
   const winOptions = {
@@ -1640,9 +1640,11 @@ ipcMain.on('window:drag-start', () => {
   const offsetX = cursor.x - bounds.x, offsetY = cursor.y - bounds.y;
   windowDrag = setInterval(() => {
     if (!win || win.isDestroyed()) { stopWindowDrag(); return; }
-    const { x, y } = screen.getCursorScreenPoint();
+    const cur = screen.getCursorScreenPoint();
+    const { workArea } = screen.getDisplayNearestPoint(cur);
+    const p = clampWindowPosition({ x: cur.x - offsetX, y: cur.y - offsetY }, workArea, { sideW: SIDE_W, mainW: MAIN_W, height: bounds.height });
     // setBounds with a fixed size: setPosition can resize the window when crossing mixed-DPI displays on Windows.
-    win.setBounds({ x: x - offsetX, y: y - offsetY, width: bounds.width, height: bounds.height });
+    win.setBounds({ x: p.x, y: p.y, width: bounds.width, height: bounds.height });
   }, 16);
 });
 ipcMain.on('window:drag-end', () => {
