@@ -1450,6 +1450,57 @@
   $('#more-btn').addEventListener('click', openSettings);
   $('#tb-settings-btn').addEventListener('click', openSettings);
 
+  // ---- Context tab: résumé / job description import, reference files ----
+  function renderReferences(list) {
+    const box = $('#references-list');
+    if (!box) return;
+    box.textContent = '';
+    if (!list.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ref-empty';
+      empty.textContent = 'No reference files yet.';
+      box.appendChild(empty);
+      return;
+    }
+    for (const r of list) {
+      const row = document.createElement('div');
+      row.className = 'ref-row';
+      const name = document.createElement('span');
+      name.className = 'ref-name';
+      name.textContent = r.name;
+      name.title = r.name;
+      const size = document.createElement('span');
+      size.className = 'ref-size';
+      size.textContent = `${Number(r.chars).toLocaleString()} chars`;
+      const remove = document.createElement('button');
+      remove.className = 's-action danger';
+      remove.textContent = 'Remove';
+      remove.addEventListener('click', async () => {
+        const next = await cue.referencesRemove(r.id);
+        if (settings) settings.references = next;
+        renderReferences(next);
+      });
+      row.append(name, size, remove);
+      box.appendChild(row);
+    }
+  }
+  $('#references-add').addEventListener('click', async () => {
+    const res = await cue.referencesAdd();
+    if (settings) settings.references = res.references;
+    renderReferences(res.references);
+    if (res.errors && res.errors.length) showToast(res.errors.join(' · '), 5000);
+  });
+  async function importInto(textareaId) {
+    const picked = await cue.pickProfileDocument();
+    if (!picked || picked.canceled) return;
+    if (picked.error) { showToast(picked.error, 4000); return; }
+    if (!picked.text) { showToast(`No text found in ${picked.fileName}.`, 4000); return; }
+    $(textareaId).value = picked.text;
+    showToast(`Imported ${picked.fileName}. Save to keep it.`, 2500);
+  }
+  $('#resume-import').addEventListener('click', () => importInto('#resume-text'));
+  $('#jd-import').addEventListener('click', () => importInto('#job-description'));
+
   // ---- "Can be captured" switch (eye button) ----
   // Off (default): cue is hidden from screen shares and recordings.
   function paintScreenShare(allow) {
@@ -1845,6 +1896,10 @@
     if (slidesEnabled) slidesEnabled.checked = !!slidesCfg.enabled;
     const slidesInterval = $('#slides-interval');
     if (slidesInterval) slidesInterval.value = slidesCfg.intervalMs || 3000;
+    // Context tab
+    $('#resume-text').value = settings.resumeText || '';
+    $('#job-description').value = settings.jobDescription || '';
+    renderReferences(settings.references || []);
     // Style tab
     $('#ai-rules').value = settings.aiRules || '';
     updateAiRulesCounter();
@@ -2126,6 +2181,9 @@
       const v = Number.parseInt(slidesIntervalEl.value, 10) || 3000;
       settings.slides.intervalMs = Math.max(1500, Math.min(15000, v));
     }
+    // Context tab (references are saved by their own IPC, not here)
+    settings.resumeText = $('#resume-text').value.trim();
+    settings.jobDescription = $('#job-description').value.trim();
     // Style tab
     settings.aiRules = $('#ai-rules').value.trim();
     // Appearance tab

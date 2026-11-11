@@ -115,6 +115,7 @@
       <div class="s-tabs">
         <button class="s-tab on" data-tab="keys" id="s-tab-main">🪙 publik</button>
         <button class="s-tab" data-tab="transcription">🔉 Audio</button>
+        <button class="s-tab" data-tab="context">📄 Context</button>
         <button class="s-tab" data-tab="style">✨ Style</button>
         <button class="s-tab" data-tab="appearance">🌗 Appearance</button>
       </div>
@@ -281,6 +282,25 @@
         <div class="s-counter"><span id="ai-rules-count">0</span> / 2000</div>
         <div class="s-hint-block">
           These rules tell cue <strong>how</strong> to write, not <strong>what</strong> to say. Use one imperative sentence per line (e.g. <em>Never use em-dashes.</em>). They apply to every mode except coding-problem solves (LeetCode), which stays strict. Stored locally; never sent anywhere except the AI provider when cue answers a question.
+        </div>
+      </div>
+
+      <!-- Tab: Context. Résumé, job description and reference files, used as
+           facts when cue answers interview questions (src/interview-context.js). -->
+      <div class="s-body s-tab-pane hidden" data-pane="context">
+        <label class="s-label" for="resume-text">Résumé <span class="s-hint">paste it, or import a PDF / DOCX / TXT / MD</span></label>
+        <textarea id="resume-text" rows="7" spellcheck="false" placeholder="Paste your résumé here"></textarea>
+        <div class="whisper-actions"><button id="resume-import" class="s-action">Import file…</button></div>
+
+        <label class="s-label" for="job-description">Job description <span class="s-hint">the role you are interviewing for</span></label>
+        <textarea id="job-description" rows="5" spellcheck="false" placeholder="Paste the job description here"></textarea>
+        <div class="whisper-actions"><button id="jd-import" class="s-action">Import file…</button></div>
+
+        <label class="s-label">References <span class="s-hint">company notes, projects, prepared answers</span></label>
+        <div id="references-list" class="references-list"></div>
+        <div class="whisper-actions"><button id="references-add" class="s-action">Add files…</button></div>
+        <div class="s-hint-block">
+          cue uses these as facts when it answers questions about you, your projects or the company, and says so when they don't cover something. Only the text is kept, stored locally on this computer and sent to your AI provider with each answer. Up to 20,000 characters of references are used, newest files first.
         </div>
       </div>
 

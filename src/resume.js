@@ -16,7 +16,8 @@ async function parseDocumentFile(filePath) {
     const res = await mammoth.extractRawText({ buffer: buf });
     return (res.value || '').trim();
   }
-  throw new Error('Unsupported file type: ' + (ext || '(none)') + '. Use a PDF or DOCX file.');
+  if (ext === '.txt' || ext === '.md') return buf.toString('utf8').trim();
+  throw new Error('Unsupported file type: ' + (ext || '(none)') + '. Use a PDF, DOCX, TXT or MD file.');
 }
 
 module.exports = { parseDocumentFile };

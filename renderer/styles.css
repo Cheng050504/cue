@@ -561,6 +561,11 @@ button:focus { outline: none; }
 }
 .s-action:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,0.09); }
 .s-action:disabled { opacity: 0.4; cursor: default; }
+.references-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 6px; }
+.references-list .ref-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.05); }
+.references-list .ref-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.references-list .ref-size { opacity: 0.6; }
+.references-list .ref-empty { font-size: 12px; opacity: 0.6; }
 .s-action.danger:hover:not(:disabled) { color: #fca5a5; border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.08); }
 /* Textareas inside settings */
 #settings textarea {

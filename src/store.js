@@ -5,6 +5,7 @@
 // unit tested without Electron; this file owns the schema, defaults and
 // public surface (getSettings/setSettings/etc.) as before.
 const { app } = require('electron');
+const { summarizeReferences } = require('./references');
 const { createFileStore } = require('./settings-store-core');
 const { normalizeBaseUrl } = require('./openai-compatible');
 
@@ -58,6 +59,8 @@ const DEFAULTS = {
   // Tab 2: Profile
   resumeText: '',
   jobDescription: '',
+  // Uploaded reference files: [{ id, name, text, addedAt }] (src/references.js). Text only; files are not kept.
+  references: [],
   // Tab 3: Interview Prep
   starStories: '',       // 3-5 behavioral STAR stories in plain English
   whyCompany: '',        // Why do you want to work here?
@@ -129,7 +132,8 @@ function clampOpacity(value) {
   return Math.min(MAX_OPACITY, Math.max(MIN_OPACITY, Math.round(n * 100) / 100));
 }
 
-const RENDERER_READ_ONLY = ['publik'];
+// references: main owns the full text (references:add/remove IPC); the renderer only sees summaries.
+const RENDERER_READ_ONLY = ['publik', 'references'];
 
 let data = null;
 let lastError = null;
@@ -204,7 +208,8 @@ function redactForRenderer(s) {
   return {
     ...s,
     apiKeys: { ...(s.apiKeys || {}), publik: '' },
-    publik: { ...(s.publik || {}), connected: !!(s.apiKeys && s.apiKeys.publik) }
+    publik: { ...(s.publik || {}), connected: !!(s.apiKeys && s.apiKeys.publik) },
+    references: summarizeReferences(s.references)
   };
 }
 

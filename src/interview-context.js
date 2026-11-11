@@ -3,6 +3,7 @@
 // direction an interview can take. Reads the live transcript to detect which
 // category is in play and injects only the fields that are relevant.
 
+const { buildReferencesBlock } = require('./references');
 // ── Question category detection ───────────────────────────────────────────────
 const CATEGORY_PATTERNS = {
   behavioral: [
@@ -250,6 +251,10 @@ function buildInterviewContext(settings, mode, transcript) {
       if (workStyle)  blocks.push('Work Style:\n' + clip(workStyle, 300));
       break;
   }
+
+  // Uploaded reference files (src/references.js), whatever the category.
+  const refsBlock = buildReferencesBlock(settings.references);
+  if (refsBlock) blocks.push(refsBlock);
 
   if (!blocks.length) return null;
 

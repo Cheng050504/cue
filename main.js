@@ -10,6 +10,7 @@ const { UtteranceBatcher, DEFAULT_MIN_GAP_MS } = require('./src/publik-stt-batch
 const { parseDocumentFile } = require('./src/resume');
 const { pickOwnProvider } = require('./src/own-provider');
 const { applyCaptureVisibility } = require('./src/capture-visibility');
+const { makeReference, summarizeReferences } = require('./src/references');
 const { createLLM, normalizeProviderName } = require('./src/llm');
 const { giveUpTimer } = require('./src/give-up');
 const { checkOwnKey } = require('./src/own-key-check');
@@ -1656,13 +1657,38 @@ ipcMain.on('log', (_e, msg) => console.log('[renderer]', msg));
 async function pickAndParseDocument() {
   const res = await dialog.showOpenDialog(win, {
     properties: ['openFile'],
-    filters: [{ name: 'Resume / Job description', extensions: ['pdf', 'docx'] }]
+    filters: [{ name: 'Resume / Job description', extensions: ['pdf', 'docx', 'txt', 'md'] }]
   });
   if (res.canceled || !res.filePaths.length) return null;
   const filePath = res.filePaths[0];
   const text = await parseDocumentFile(filePath);
   return { fileName: path.basename(filePath), text };
 }
+// Reference files (Settings → Context). The text is extracted here and kept in
+// settings.references; the renderer only ever gets summaries (name, size).
+ipcMain.handle('references:list', () => summarizeReferences(store.getSettings().references));
+ipcMain.handle('references:add', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Reference files', extensions: ['pdf', 'docx', 'txt', 'md'] }]
+  });
+  const errors = [];
+  if (res.canceled || !res.filePaths.length) return { references: summarizeReferences(store.getSettings().references), errors };
+  const added = [];
+  for (const filePath of res.filePaths) {
+    const name = path.basename(filePath);
+    try { added.push(makeReference(name, await parseDocumentFile(filePath), Date.now())); }
+    catch (e) { errors.push(`${name}: ${(e && e.message) || e}`); }
+  }
+  const references = [...(store.getSettings().references || []), ...added];
+  store.setSettings({ references });
+  return { references: summarizeReferences(references), errors };
+});
+ipcMain.handle('references:remove', (_e, id) => {
+  const references = (store.getSettings().references || []).filter((r) => r.id !== id);
+  store.setSettings({ references });
+  return summarizeReferences(references);
+});
 // The toolbar's eye button: let screen shares capture the overlay, or hide it again.
 ipcMain.handle('screenshare:get', () => ({ allowCapture: !!store.getSettings().allowCapture }));
 ipcMain.handle('screenshare:set', (_e, allow) => {
