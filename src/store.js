@@ -78,6 +78,8 @@ const DEFAULTS = {
   opacity: 1,
   // Let screen shares / recordings capture cue's windows (toolbar eye button). Off = hidden.
   allowCapture: false,
+  // Answer interviewer questions as soon as one is detected, without pressing Enter.
+  autoAnswer: true,
   // Slides: opt-in auto slide tracking (memory-only, forwarded, never written to disk).
   slides: {
     enabled: false,

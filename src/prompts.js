@@ -153,7 +153,8 @@ const MODES = {
         '• EXPERIENCE: Reference specific roles/projects from their resume.\n' +
         '• COMPENSATION: State the salary target confidently in one sentence.\n' +
         '• SITUATIONAL: Structured thinking — "First I would X, then Y, because Z."\n\n' +
-        'Write in first person, as the candidate speaking. No preamble. 2–5 sentences.',
+        'Write in first person, as the candidate speaking. No preamble. ' +
+        'Start with one short, direct sentence the user can say immediately, then 2-4 short bullets with specifics from the résumé or references.',
         contextBlock
       ), aiRules, 'answerThis');
     },

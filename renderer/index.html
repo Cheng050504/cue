@@ -288,6 +288,8 @@
       <!-- Tab: Context. Résumé, job description and reference files, used as
            facts when cue answers interview questions (src/interview-context.js). -->
       <div class="s-body s-tab-pane hidden" data-pane="context">
+        <div class="s-field"><span>Auto-answer interviewer questions</span><input id="auto-answer" type="checkbox" style="width:auto;" /></div>
+        <div class="s-note">When the interviewer finishes a question, cue answers right away. Turn off to press Enter yourself.</div>
         <label class="s-label" for="resume-text">Résumé <span class="s-hint">paste it, or import a PDF / DOCX / TXT / MD</span></label>
         <textarea id="resume-text" rows="7" spellcheck="false" placeholder="Paste your résumé here"></textarea>
         <div class="whisper-actions"><button id="resume-import" class="s-action">Import file…</button></div>
@@ -354,6 +356,7 @@
 
   <script src="icons.js"></script>
   <script src="publik-card.js"></script>
+  <script src="auto-answer.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

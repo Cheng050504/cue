@@ -1134,6 +1134,7 @@ async function runFeature(mode, userText) {
     // When it gives up, the HTTP request is cancelled too (guard.signal), so the
     // provider stops generating and billing an answer cue no longer shows.
     const guard = giveUpTimer(STREAM_INACTIVITY_MS, 'the model stopped responding (timed out). Please try again.');
+    activeAnswerGuard = guard;
     const rearm = guard.rearm;
     // A reasoning model streams its thinking before any text: that is
     // activity too, so a long think is not called a stalled stream. While it
@@ -1169,6 +1170,7 @@ async function runFeature(mode, userText) {
     } finally {
       streamSettled = true;
       guard.clear();
+      if (activeAnswerGuard === guard) activeAnswerGuard = null;
     }
     send('llm:done', {});
     // The own key answered: it is not bad (any more).
@@ -1177,6 +1179,8 @@ async function runFeature(mode, userText) {
     // GET /wallet shortly after the answer — one request per answer, debounced.
     if (settings.provider === publik.PUBLIK_PROVIDER) publikScheduleWalletRefresh();
   } catch (e) {
+    // Stopped on purpose (llm:cancel): not an error; the renderer sends the next question.
+    if (e && e.cancelled) { send('llm:done', { cancelled: true }); return; }
     recordEvent({ level: 'error', event: e && e.emptyAnswer ? 'llm_empty_answer' : 'llm_failed', msg: e && e.message ? e.message : String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider, finishReason: (e && e.finishReason) || null, stopKind: (e && e.stopKind) || null, retryFailed: (e && e.retryFailed) || null } });
     // A bad own key: plain words, "Switch to publik" first, "Fix my key"
     // second; never the provider's raw 401.
@@ -1195,6 +1199,9 @@ async function runFeature(mode, userText) {
 }
 
 // -------- IPC --------
+// Auto-answer restarts on a longer question: stop the answer that is streaming.
+let activeAnswerGuard = null;
+ipcMain.on('llm:cancel', () => { if (activeAnswerGuard) activeAnswerGuard.cancel(); });
 // Redact on the way out, strip on the way in: the publik key never enters the
 // renderer, and the renderer's whole-object Save can never clobber it.
 ipcMain.handle('settings:get', () => store.redactForRenderer(store.getSettings()));

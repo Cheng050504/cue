@@ -9,6 +9,7 @@
 //   llm.stream({ ..., signal: guard.signal });   // race against guard.expired
 //   guard.rearm();   // activity: wait another 25 s (answers only)
 //   guard.clear();   // the stream settled: stop the timer, keep the request
+//   guard.cancel();  // stop on purpose: abort, reject expired with e.cancelled
 function giveUpTimer(ms, message, timers = { setTimeout, clearTimeout }) {
   const controller = new AbortController();
   let timer = null;
@@ -28,8 +29,18 @@ function giveUpTimer(ms, message, timers = { setTimeout, clearTimeout }) {
     timers.clearTimeout(timer);
     timer = null;
   };
+  // Stop on purpose (auto-answer restarting on a longer question): abort the
+  // request and reject `expired` with an error the caller can tell apart.
+  const cancel = () => {
+    timers.clearTimeout(timer);
+    timer = null;
+    const err = new Error('cancelled');
+    err.cancelled = true;
+    controller.abort(err);
+    reject(err);
+  };
   rearm();
-  return { signal: controller.signal, expired, rearm, clear };
+  return { signal: controller.signal, expired, rearm, clear, cancel };
 }
 
 module.exports = { giveUpTimer };

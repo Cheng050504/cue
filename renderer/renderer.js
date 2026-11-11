@@ -256,6 +256,12 @@
   // ========== SMART AUTO-FILL SYSTEM ==========
   // Track whether the current input text came from STT auto-fill (Them channel)
   let inputFromSTT = false;
+  // Auto-answer (renderer/auto-answer.js decides; this holds the state).
+  const AA = window.cueAutoAnswer;
+  let lastKeyAt = 0;          // last keystroke in the input box: the person is typing
+  let lastAutoAnswered = '';  // normalized text of the last question cue answered by itself
+  let autoAnswering = null;   // { text, startedAt, resentFor } while an auto-answer is recent
+  let pendingResend = null;   // full question to send once the cancelled answer reports done
   let sttFillTimer = null;
   let questionFinalizeTimer = null;
   let softClearTimer = null;
@@ -389,6 +395,17 @@
 
   // ---- Auto-fill the input box with transcribed speech from interviewer ----
   function autoFillInputFromSTT(text) {
+    // The interviewer kept asking right after cue started answering: restart
+    // once on the full question (renderer/auto-answer.js nextAutoAction).
+    if (AA && autoAnswering && !pendingResend) {
+      const full = autoAnswering.text + ' ' + (inputFromSTT ? input.value.trim() + ' ' : '') + text;
+      if (AA.nextAutoAction({ answeringText: autoAnswering.text, resentFor: autoAnswering.resentFor, newText: full, msSinceStart: Date.now() - autoAnswering.startedAt }) === 'resend') {
+        autoAnswering.resentFor = autoAnswering.text;
+        if (busy) { pendingResend = full; cue.cancelAnswer(); }
+        else autoSend(full, autoAnswering.text);
+        return;
+      }
+    }
     // If user has manually typed something different, don't overwrite
     if (!inputFromSTT && input.value.trim().length > 0) return;
 
@@ -411,7 +428,21 @@
     // Reset the idle timer — after 2s of silence, check if question is complete
     clearTimeout(questionFinalizeTimer);
     questionFinalizeTimer = setTimeout(() => {
-      if (isLikelyCompleteQuestion(input.value)) {
+      const complete = isLikelyCompleteQuestion(input.value);
+      if (AA && AA.shouldAutoAnswer({
+        enabled: !settings || settings.autoAnswer !== false,
+        text: input.value,
+        fromSTT: inputFromSTT,
+        edited: input.value !== lastSTTValue,
+        lastAnswered: lastAutoAnswered,
+        busy,
+        typingRecently: Date.now() - lastKeyAt < 1500,
+        complete
+      })) {
+        autoSend(input.value);
+        return;
+      }
+      if (complete) {
         composer.classList.add('stt-ready');
         updateSendButtonState(); // FIX #9: Update send button when ready
         // Subtle notification that question is ready
@@ -545,6 +576,29 @@
   input.addEventListener('blur', () => { composer.classList.remove('focused'); syncPlaceholder(); });
   $('#input-area').addEventListener('click', () => input.focus());
 
+  // Send an interviewer question without a keypress. `resentFor` carries the
+  // shorter question this one replaces, so it is never restarted twice.
+  function autoSend(text, resentFor) {
+    input.value = text;
+    inputFromSTT = true;
+    lastSTTValue = text;
+    lastAutoAnswered = AA.normalizeQuestion(text);
+    autoAnswering = { text, startedAt: Date.now(), resentFor: resentFor || '' };
+    send();
+  }
+
+  // Auto-answer listeners of their own (preload's cue.on adds a listener; the
+  // answer-area llm:* handlers further down stay untouched). This one runs
+  // first, so the restart waits a tick for that handler to clear `busy`.
+  cue.on('llm:done', () => {
+    if (!pendingResend) return;
+    const text = pendingResend;
+    const replaced = autoAnswering ? autoAnswering.text : '';
+    pendingResend = null;
+    setTimeout(() => autoSend(text, replaced), 0);
+  });
+  cue.on('llm:error', () => { pendingResend = null; }); // a failed answer never triggers a queued restart
+
   function send() {
     const text = input.value.trim();
     if (!text) { runMode('assist', ''); return; }
@@ -569,6 +623,7 @@
     runMode(wasFromSTT ? 'answerThis' : 'ask', text);
   }
   $('#send-btn').addEventListener('click', send);
+  input.addEventListener('keydown', () => { lastKeyAt = Date.now(); });
   input.addEventListener('keydown', (e) => {
     // Ctrl+Z / Cmd+Z: restore last question if input is empty
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !input.value.trim()) {
@@ -1897,6 +1952,7 @@
     const slidesInterval = $('#slides-interval');
     if (slidesInterval) slidesInterval.value = slidesCfg.intervalMs || 3000;
     // Context tab
+    $('#auto-answer').checked = settings.autoAnswer !== false;
     $('#resume-text').value = settings.resumeText || '';
     $('#job-description').value = settings.jobDescription || '';
     renderReferences(settings.references || []);
@@ -2182,6 +2238,7 @@
       settings.slides.intervalMs = Math.max(1500, Math.min(15000, v));
     }
     // Context tab (references are saved by their own IPC, not here)
+    settings.autoAnswer = !!$('#auto-answer').checked;
     settings.resumeText = $('#resume-text').value.trim();
     settings.jobDescription = $('#job-description').value.trim();
     // Style tab
