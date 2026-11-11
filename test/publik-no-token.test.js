@@ -22,10 +22,17 @@ const m = require(process.env.PUBLIK_MODULE);
 })();
 `;
 
-function runHarness() {
+function runHarness({ withCredential = false } = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-notoken-'));
+  if (withCredential) {
+    // Left behind by an earlier official build (darwin path; the harness runs with this HOME).
+    const base = process.platform === 'darwin' ? path.join(home, 'Library', 'Application Support') : path.join(home, '.config');
+    const dir = path.join(base, 'publik', 'apps');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'cue.json'), JSON.stringify({ key: 'pk_live_old', base_url: 'http://127.0.0.1:9', install_id: 'x', choice: 'publik' }));
+  }
   const env = { ...process.env, HOME: home, PUBLIK_MODULE: MODULE, DO_NOT_TRACK: '1' };
-  delete env.PUBLIK_APP_TOKEN; delete env.PUBLIK_API_KEY; delete env.PUBLIK_SELF_TEST;
+  delete env.XDG_CONFIG_HOME; delete env.PUBLIK_APP_TOKEN; delete env.PUBLIK_API_KEY; delete env.PUBLIK_SELF_TEST;
   return new Promise((resolve, reject) => {
     execFile(process.execPath, ['-e', HARNESS], { env, cwd: home, timeout: 10000 }, (err, stdout) => {
       if (err) return reject(err);
@@ -48,4 +55,10 @@ test('noToken_switchesPublikProvider', () => {
   assert.equal(pickOwnProvider({ provider: 'publik', apiKeys: {} }), 'anthropic');
   assert.equal(pickOwnProvider({ provider: 'publik' }), 'anthropic');
   assert.equal(pickOwnProvider({ provider: 'gemini', apiKeys: {} }), 'gemini');
+});
+
+test('noToken_withOldCredential_stillSkipsGate', async () => {
+  const { gate, screens } = await runHarness({ withCredential: true });
+  assert.equal(screens, 0);
+  assert.equal(gate.noPublik, true);
 });

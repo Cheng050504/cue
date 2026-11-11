@@ -135,7 +135,8 @@ function clampOpacity(value) {
 }
 
 // references: main owns the full text (references:add/remove IPC); the renderer only sees summaries.
-const RENDERER_READ_ONLY = ['publik', 'references'];
+// allowCapture: set only by the eye button (screenshare:set), never by a whole-settings save.
+const RENDERER_READ_ONLY = ['publik', 'references', 'allowCapture'];
 
 let data = null;
 let lastError = null;

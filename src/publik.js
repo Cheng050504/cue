@@ -168,9 +168,9 @@ async function ensureSignedIn(ui = terminalUI()) {
   }
   // A build from source carries no app token and so can never provision a key.
   // Rather than block start-up on a screen no one can get past, run on the
-  // person's own key. A credential stored by an earlier official build still
-  // goes through the normal gate.
-  if (!hasAppToken() && !process.env.PUBLIK_API_KEY && !readCredential()) {
+  // person's own key — also when an earlier official build left a credential,
+  // since a revoked one could never be replaced here.
+  if (!hasAppToken() && !process.env.PUBLIK_API_KEY) {
     return { key: null, wallet: null, choice: "own_key", noPublik: true };
   }
   let signNote = null, signPoll = true, planNote = null, planPoll = false;

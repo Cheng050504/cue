@@ -260,7 +260,7 @@
   const AA = window.cueAutoAnswer;
   let lastKeyAt = 0;          // last keystroke in the input box: the person is typing
   let lastAutoAnswered = '';  // normalized text of the last question cue answered by itself
-  let autoAnswering = null;   // { text, startedAt, resentFor } while an auto-answer is recent
+  let autoAnswering = null;   // startAuto(...) result while an auto-answer is recent
   let pendingResend = null;   // full question to send once the cancelled answer reports done
   let sttFillTimer = null;
   let questionFinalizeTimer = null;
@@ -398,11 +398,17 @@
     // The interviewer kept asking right after cue started answering: restart
     // once on the full question (renderer/auto-answer.js nextAutoAction).
     if (AA && autoAnswering && !pendingResend) {
-      const full = autoAnswering.text + ' ' + (inputFromSTT ? input.value.trim() + ' ' : '') + text;
-      if (AA.nextAutoAction({ answeringText: autoAnswering.text, resentFor: autoAnswering.resentFor, newText: full, msSinceStart: Date.now() - autoAnswering.startedAt }) === 'resend') {
-        autoAnswering.resentFor = autoAnswering.text;
+      const fragment = ((inputFromSTT ? input.value.trim() + ' ' : '') + text).trim();
+      const action = AA.nextAutoAction(autoAnswering, {
+        fragment,
+        now: Date.now(),
+        typingRecently: Date.now() - lastKeyAt < 1500,
+        userTyped: !inputFromSTT && input.value.trim().length > 0
+      });
+      if (action === 'resend') {
+        const full = autoAnswering.text + ' ' + fragment;
         if (busy) { pendingResend = full; cue.cancelAnswer(); }
-        else autoSend(full, autoAnswering.text);
+        else autoSend(full, autoAnswering);
         return;
       }
     }
@@ -576,14 +582,15 @@
   input.addEventListener('blur', () => { composer.classList.remove('focused'); syncPlaceholder(); });
   $('#input-area').addEventListener('click', () => input.focus());
 
-  // Send an interviewer question without a keypress. `resentFor` carries the
-  // shorter question this one replaces, so it is never restarted twice.
-  function autoSend(text, resentFor) {
+  // Send an interviewer question without a keypress. `replaces` is the
+  // auto-answer this one restarts (renderer/auto-answer.js startAuto), so a
+  // question is never restarted twice.
+  function autoSend(text, replaces) {
     input.value = text;
     inputFromSTT = true;
     lastSTTValue = text;
     lastAutoAnswered = AA.normalizeQuestion(text);
-    autoAnswering = { text, startedAt: Date.now(), resentFor: resentFor || '' };
+    autoAnswering = AA.startAuto(text, replaces || null, Date.now());
     send();
   }
 
@@ -593,9 +600,9 @@
   cue.on('llm:done', () => {
     if (!pendingResend) return;
     const text = pendingResend;
-    const replaced = autoAnswering ? autoAnswering.text : '';
+    const replaces = autoAnswering;
     pendingResend = null;
-    setTimeout(() => autoSend(text, replaced), 0);
+    setTimeout(() => autoSend(text, replaces), 0);
   });
   cue.on('llm:error', () => { pendingResend = null; }); // a failed answer never triggers a queued restart
 
@@ -1572,6 +1579,7 @@
   $('#screenshare-btn').addEventListener('click', async () => {
     const now = $('#screenshare-btn').classList.contains('on');
     const r = await cue.screenShareSet(!now);
+    if (settings) settings.allowCapture = r.allowCapture;
     paintScreenShare(r.allowCapture);
     if (r.result === 'unsupported') showToast('Screen-share hiding is not supported here, so cue may always be visible.', 3000);
     else showToast(r.allowCapture ? 'cue is now visible to screen share' : 'cue is hidden from screen share', 2000);

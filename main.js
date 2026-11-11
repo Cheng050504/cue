@@ -1289,10 +1289,10 @@ function checkSelectedOwnKey() {
 function publikApplyGate(gate) {
   // A build from source (no app token): no publik key to apply. Make sure the
   // saved provider is one the person can actually use.
-  if (gate.noPublik) {
+  if (gate.noPublik || !publikBuild.available) {
     const s = store.getSettings();
     if (s.provider === publik.PUBLIK_PROVIDER) store.setSettings({ provider: pickOwnProvider(s) });
-    return;
+    if (gate.noPublik) return;
   }
   const c = publikModule.readCredential() || { key: gate.key, base_url: publikBuild.baseUrl, install_id: '', claim_url: null };
   if (gate.choice === 'publik') { publikConnect({ ...c, key: gate.key }, gate.wallet); return; }

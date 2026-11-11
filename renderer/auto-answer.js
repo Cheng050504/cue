@@ -23,15 +23,41 @@
     return !!a && b.length > a.length && b.startsWith(a);
   }
 
-  /** s = { answeringText, resentFor, newText, msSinceStart } -> 'resend' | 'none' */
-  function nextAutoAction(s) {
-    if (!s || !s.answeringText) return 'none';
-    if (s.resentFor === s.answeringText) return 'none';
-    if (!(s.msSinceStart < EXTEND_WINDOW_MS)) return 'none';
-    return isExtension(s.answeringText, s.newText) ? 'resend' : 'none';
+  // A new fragment needs this many real words (3+ letters, not filler) to
+  // count as the question going on, so "Mm-hm." or "Okay, right." never
+  // cancels a good answer.
+  const MIN_EXTENSION_WORDS = 2;
+  const FILLER = new Set(['okay', 'yeah', 'yes', 'yep', 'right', 'sure', 'great', 'cool', 'hmm', 'uhh', 'umm', 'nice', 'good', 'got', 'see', 'thanks', 'thank', 'the', 'and']);
+  function realWords(frag) {
+    return frag.split(' ').filter((w) => w.length >= 3 && !FILLER.has(w)).length;
   }
 
-  const api = { EXTEND_WINDOW_MS, normalizeQuestion, shouldAutoAnswer, isExtension, nextAutoAction };
+  /**
+   * The auto-answer now running. `prev` is the one it replaces (a restart):
+   * then `restarted` is set and carried, so a question restarts at most once
+   * however many pieces the interviewer adds.
+   * @returns {{ text: string, startedAt: number, restarted: boolean }}
+   */
+  function startAuto(text, prev, now) {
+    return { text: String(text || ''), startedAt: now, restarted: !!prev };
+  }
+
+  /**
+   * auto = startAuto(...) or null; s = { fragment, now, typingRecently, userTyped }.
+   * 'resend' when new interviewer words extend the question shortly after cue
+   * started answering it; otherwise 'none'.
+   */
+  function nextAutoAction(auto, s) {
+    if (!auto || auto.restarted || !s) return 'none';
+    if (s.typingRecently || s.userTyped) return 'none';
+    if (!(s.now - auto.startedAt < EXTEND_WINDOW_MS)) return 'none';
+    const frag = normalizeQuestion(s.fragment);
+    if (!frag || realWords(frag) < MIN_EXTENSION_WORDS) return 'none';
+    if (normalizeQuestion(auto.text).includes(frag)) return 'none'; // the same words again
+    return 'resend';
+  }
+
+  const api = { EXTEND_WINDOW_MS, normalizeQuestion, shouldAutoAnswer, isExtension, startAuto, nextAutoAction };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.cueAutoAnswer = api;
 })(typeof window !== 'undefined' ? window : globalThis);

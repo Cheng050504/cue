@@ -47,3 +47,9 @@ test('store_default', () => {
   const DEFAULTS = require('./helpers-store-defaults').storeDefaults();
   assert.equal(DEFAULTS.allowCapture, false);
 });
+
+test('settingsSave_cannotOverwriteAllowCapture', () => {
+  require('./helpers-store-defaults').storeDefaults();
+  const store = require('../src/store');
+  assert.equal('allowCapture' in store.stripRendererPatch({ allowCapture: true, aiRules: 'x' }), false);
+});
