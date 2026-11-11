@@ -108,6 +108,10 @@ html, body {
 #toolbar button { border: none; background: transparent; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 140ms ease, transform 140ms ease; }
 .tb-logo, .tb-settings { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.06) !important; }
 .tb-logo:hover, .tb-settings:hover { background: rgba(255,255,255,0.12) !important; }
+/* Eye button: amber while cue is visible to screen shares, so it is never left on by accident. */
+.tb-screenshare { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.06) !important; }
+.tb-screenshare:hover { background: rgba(255,255,255,0.12) !important; }
+.tb-screenshare.on { background: rgba(245,166,35,0.28) !important; color: #f5a623; }
 .tb-hide { gap: 6px; padding: 5px 12px 5px 10px; border-radius: var(--r-pill); font-size: 13px; font-weight: 500; }
 .tb-hide:hover { background: rgba(255,255,255,0.08); }
 .tb-hide .chev { width: 14px; height: 14px; display: inline-flex; color: rgba(255,255,255,0.9); }

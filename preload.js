@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('cue', {
   appLinkRevoke: (callerId) => ipcRenderer.invoke('applink:revoke', callerId),
   appLinkConsentRespond: (id, allowed) => ipcRenderer.send('applink:consent-response', { id, allowed }),
   pickProfileDocument: () => ipcRenderer.invoke('profile:pickDocument'),
+  screenShareGet: () => ipcRenderer.invoke('screenshare:get'),
+  screenShareSet: (allow) => ipcRenderer.invoke('screenshare:set', !!allow),
   quit: () => ipcRenderer.send('app:quit'),
   permissionsCheck: () => ipcRenderer.invoke('permissions:check'),
   permissionsRequest: () => ipcRenderer.invoke('permissions:request'),

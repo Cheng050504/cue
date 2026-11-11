@@ -1449,6 +1449,27 @@
   }
   $('#more-btn').addEventListener('click', openSettings);
   $('#tb-settings-btn').addEventListener('click', openSettings);
+
+  // ---- "Can be captured" switch (eye button) ----
+  // Off (default): cue is hidden from screen shares and recordings.
+  function paintScreenShare(allow) {
+    const btn = $('#screenshare-btn');
+    if (!btn) return;
+    const label = allow ? 'Visible to screen share' : 'Hidden from screen share';
+    btn.innerHTML = icon(allow ? 'eye' : 'eye-off', { size: 16 });
+    btn.classList.toggle('on', !!allow);
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('aria-pressed', allow ? 'true' : 'false');
+  }
+  if (cue.screenShareGet) cue.screenShareGet().then((r) => paintScreenShare(r && r.allowCapture)).catch(() => paintScreenShare(false));
+  $('#screenshare-btn').addEventListener('click', async () => {
+    const now = $('#screenshare-btn').classList.contains('on');
+    const r = await cue.screenShareSet(!now);
+    paintScreenShare(r.allowCapture);
+    if (r.result === 'unsupported') showToast('Screen-share hiding is not supported here, so cue may always be visible.', 3000);
+    else showToast(r.allowCapture ? 'cue is now visible to screen share' : 'cue is hidden from screen share', 2000);
+  });
   $('#s-close').addEventListener('click', () => { void closeSettings(); });
   scrim.addEventListener('click', (e) => { if (e.target === scrim) void closeSettings(); });
 

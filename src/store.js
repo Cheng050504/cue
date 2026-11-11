@@ -73,6 +73,8 @@ const DEFAULTS = {
   aiRules: '',
   // Overlay opacity (1 = fully opaque). Clamped so the window never vanishes.
   opacity: 1,
+  // Let screen shares / recordings capture cue's windows (toolbar eye button). Off = hidden.
+  allowCapture: false,
   // Slides: opt-in auto slide tracking (memory-only, forwarded, never written to disk).
   slides: {
     enabled: false,
@@ -207,6 +209,7 @@ function redactForRenderer(s) {
 }
 
 module.exports = {
+  DEFAULTS,
   MAX_AI_RULES_CHARS,
   MIN_OPACITY,
   MAX_OPACITY,

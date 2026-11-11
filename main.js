@@ -9,6 +9,7 @@ const { createSTT } = require('./src/stt');
 const { UtteranceBatcher, DEFAULT_MIN_GAP_MS } = require('./src/publik-stt-batcher');
 const { parseDocumentFile } = require('./src/resume');
 const { pickOwnProvider } = require('./src/own-provider');
+const { applyCaptureVisibility } = require('./src/capture-visibility');
 const { createLLM, normalizeProviderName } = require('./src/llm');
 const { giveUpTimer } = require('./src/give-up');
 const { checkOwnKey } = require('./src/own-key-check');
@@ -108,6 +109,11 @@ const WIN_SUPPORTS_CONTENT_PROTECTION = !isWindows || WIN_BUILD >= 19041;
 // viewer also could) is strictly better than a window that is invisible to
 // everyone, including the user trying to grant it microphone access.
 const WIN_IS_LOCAL_CONSOLE_SESSION = !isWindows || process.env.SESSIONNAME === 'Console';
+
+// Platform facts for src/capture-visibility.js (the "can be captured" switch).
+function captureEnv() {
+  return { isLinux, winSupports: WIN_SUPPORTS_CONTENT_PROTECTION, localConsole: WIN_IS_LOCAL_CONSOLE_SESSION, noProtectEnv: !!process.env.CUE_NO_PROTECT };
+}
 
 let permWin = null;
 // Windows never blocks startup on an unresolved permission (see app.whenReady()
@@ -348,7 +354,8 @@ function createWindow() {
       // say so, rather than pretending the window is hidden from screen shares.
       console.log('[cue] Running on Linux: native screen protection (setContentProtection) is not supported and has been skipped.');
     } else if (WIN_SUPPORTS_CONTENT_PROTECTION) {
-      win.setContentProtection(true);
+      // Hidden from capture unless the person turned the eye button on.
+      applyCaptureVisibility([win], !!store.getSettings().allowCapture, captureEnv());
     } else {
       // Will notify the renderer after it loads
       console.log(`[cue] Windows build ${WIN_BUILD} < 19041 — setContentProtection not supported. Window may appear in screen shares.`);
@@ -1656,6 +1663,14 @@ async function pickAndParseDocument() {
   const text = await parseDocumentFile(filePath);
   return { fileName: path.basename(filePath), text };
 }
+// The toolbar's eye button: let screen shares capture the overlay, or hide it again.
+ipcMain.handle('screenshare:get', () => ({ allowCapture: !!store.getSettings().allowCapture }));
+ipcMain.handle('screenshare:set', (_e, allow) => {
+  const allowCapture = !!allow;
+  store.setSettings({ allowCapture });
+  const result = win && !win.isDestroyed() ? applyCaptureVisibility([win], allowCapture, captureEnv()) : 'unsupported';
+  return { allowCapture, result };
+});
 ipcMain.handle('profile:pickDocument', async () => {
   try {
     const picked = await pickAndParseDocument();
