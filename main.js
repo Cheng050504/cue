@@ -8,6 +8,7 @@ const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { UtteranceBatcher, DEFAULT_MIN_GAP_MS } = require('./src/publik-stt-batcher');
 const { parseDocumentFile } = require('./src/resume');
+const { pickOwnProvider } = require('./src/own-provider');
 const { createLLM, normalizeProviderName } = require('./src/llm');
 const { giveUpTimer } = require('./src/give-up');
 const { checkOwnKey } = require('./src/own-key-check');
@@ -1271,6 +1272,13 @@ function checkSelectedOwnKey() {
 // (publik:accept-disclosure), which needs no new mint because the module
 // keeps the credential.
 function publikApplyGate(gate) {
+  // A build from source (no app token): no publik key to apply. Make sure the
+  // saved provider is one the person can actually use.
+  if (gate.noPublik) {
+    const s = store.getSettings();
+    if (s.provider === publik.PUBLIK_PROVIDER) store.setSettings({ provider: pickOwnProvider(s) });
+    return;
+  }
   const c = publikModule.readCredential() || { key: gate.key, base_url: publikBuild.baseUrl, install_id: '', claim_url: null };
   if (gate.choice === 'publik') { publikConnect({ ...c, key: gate.key }, gate.wallet); return; }
   const w = gate.wallet ? publik.normalizeWallet(gate.wallet) : null;
