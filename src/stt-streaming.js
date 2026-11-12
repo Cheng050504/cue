@@ -17,7 +17,7 @@ const { GEMINI_TRANSCRIBE_LIVE_MODEL } = require('./llm');
 class OpenAIRealtimeSTT {
   constructor(apiKey, options = {}) {
     this.apiKey = apiKey;
-    this.model = options.model || 'gpt-realtime-whisper';
+    this.model = options.model || 'gpt-4o-mini-transcribe';
     this.ws = null;
     this.connected = false;
     this.reconnecting = false;
@@ -68,7 +68,10 @@ class OpenAIRealtimeSTT {
                 transcription: {
                   model: this.model,
                   language: 'en'
-                }
+                },
+                // Server VAD commits each utterance, which is what produces
+                // the .completed (final) transcript events cue waits for.
+                turn_detection: { type: 'server_vad', silence_duration_ms: 500 }
               }
             }
           }
@@ -638,7 +641,9 @@ function createStreamingSTT(settings, channel, callbacks) {
   // Priority 2: OpenAI Realtime API (excellent quality, slightly higher latency)
   if ((selectedProvider === 'auto' || selectedProvider === 'openai') && keys.openai) {
     const stt = new OpenAIRealtimeSTT(keys.openai, {
-      model: 'gpt-realtime-whisper', // only this model gives true streaming deltas
+      // gpt-realtime-whisper streams deltas but never sends .completed, so no
+      // final transcript ever arrived and auto-answer never fired.
+      model: 'gpt-4o-mini-transcribe',
       onTranscript: (text) => onTranscript(channel, text),
       onInterim: (text) => onInterim(channel, text),
       onError,
